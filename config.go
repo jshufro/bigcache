@@ -26,14 +26,8 @@ type Config struct {
 	// the oldest entries are overridden for the new ones.
 	HardMaxCacheSize int
 	// OnRemove is a callback fired when the oldest entry is removed because of its expiration time or no space left
-	// for the new entry, or because delete was called. A bitmask representing the reason will be returned.
-	// Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
-	OnRemove func(key string, entry []byte, reason RemoveReason)
-	// OnRemoveFilter is a value the signals to the cache which removals should invoke OnRemove.
-	// If unspecified, all removals will be reported. If a user only cares about space evictions and
-	// life expirations, for example, setting this to "Expiration | NoSpace" will prevent unwrapping on
-	// other removals (Delete calls).
-	OnRemoveFilter int
+	// for the new entry. Default value is nil which means no callback and it prevents from unwrapping the oldest entry.
+	OnRemove func(key string, entry []byte)
 
 	// Logger is a logging interface and used in combination with `Verbose`
 	// Defaults to `DefaultLogger()`

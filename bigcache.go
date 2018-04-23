@@ -22,18 +22,6 @@ type BigCache struct {
 	maxShardSize uint32
 }
 
-// RemoveReason is a value used to signal to the user why a particular key was removed in the OnRemove callback.
-type RemoveReason int32
-const (
-	// Expired means the key is past its LifeWindow.
-	Expired    = 1 << iota
-	// NoSpace means the key is the oldest and the cache size was at its maximum when Set was called, or the
-	// entry exceeded the maximum shard size.
-	NoSpace    = 1 << iota
-	// Deleted means Delete was called and this key was removed as a result.
-	Deleted    = 1 << iota
-)
-
 // NewBigCache initialize new instance of BigCache
 func NewBigCache(config Config) (*BigCache, error) {
 	return newBigCache(config, &systemClock{})
@@ -59,7 +47,7 @@ func newBigCache(config Config, clock clock) (*BigCache, error) {
 		maxShardSize: uint32(config.maximumShardSize()),
 	}
 
-	var onRemove func(wrappedEntry []byte, reason RemoveReason)
+	var onRemove func(wrappedEntry []byte)
 	if config.OnRemove == nil {
 		onRemove = cache.notProvidedOnRemove
 	} else {
@@ -140,10 +128,10 @@ func (c *BigCache) Iterator() *EntryInfoIterator {
 	return newIterator(c)
 }
 
-func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func(reason RemoveReason) error) bool {
+func (c *BigCache) onEvict(oldestEntry []byte, currentTimestamp uint64, evict func() error) bool {
 	oldestTimestamp := readTimestampFromEntry(oldestEntry)
 	if currentTimestamp-oldestTimestamp > c.lifeWindow {
-		evict(Expired)
+		evict()
 		return true
 	}
 	return false
@@ -159,11 +147,9 @@ func (c *BigCache) getShard(hashedKey uint64) (shard *cacheShard) {
 	return c.shards[hashedKey&c.shardMask]
 }
 
-func (c *BigCache) providedOnRemove(wrappedEntry []byte, reason RemoveReason) {
-	if c.config.OnRemoveFilter == 0 || int(reason) & c.config.OnRemoveFilter > 0 {
-		c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry), reason)
-	}
+func (c *BigCache) providedOnRemove(wrappedEntry []byte) {
+	c.config.OnRemove(readKeyFromEntry(wrappedEntry), readEntry(wrappedEntry))
 }
 
-func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte, reason RemoveReason) {
+func (c *BigCache) notProvidedOnRemove(wrappedEntry []byte) {
 }
